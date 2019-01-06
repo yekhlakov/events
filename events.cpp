@@ -49,28 +49,31 @@ namespace maxy
 				auto pool = listeners.find (e->name ());
 				if (pool == listeners.end ())
 				{
+					// No handlers for this event -> void result
 					delete e;
 					return result::Void;
 				}
 
 				auto res = result::Ok;
 
+				// Iterate over the registered listeners
 				for (auto listener : pool->second)
 				{
 					auto partial_res = listener (e);
+
 					if (partial_res == result::Fatal)
 					{
+						// a fatal error terminates the iteration
 						res = partial_res;
 						break;
 					}
 					else if (partial_res == result::Failed)
 					{
+						// a regular error just sets the result
 						res = partial_res;
 					}
 				}
-
 				delete e;
-
 				return res;
 			}
 		}
