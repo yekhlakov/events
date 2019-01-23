@@ -75,9 +75,9 @@ int main ()
 {
 	auto dispatcher = maxy::control::events::dispatcher{};
 
-	dispatcher.register_listener ("e1", &L1);
-	dispatcher.register_listener ("e3", &L3);
-	dispatcher.register_listener ("e3", &L3_2);
+	dispatcher.register_listener<e1> (&L1);
+	dispatcher.register_listener<e3> (&L3);
+	dispatcher.register_listener<e3> (&L3_2);
 
 	// e1 gets handled once
 	std::cout << "E1->" << (int) dispatcher (new e1 ("OLOLO")) << "\n"; 
@@ -88,18 +88,18 @@ int main ()
 	// e3 is handled by two listeners with a failure
 	std::cout << "E3->" << (int) dispatcher (new e3 (3.14159f)) << "\n";
 
-	dispatcher.register_listener ("e2", &L2_FATAL);
-	dispatcher.register_listener ("e2", &L2_OK);
-	dispatcher.register_listener ("e2", &L2_MORE);
+	dispatcher.register_listener<e2> (&L2_FATAL);
+	dispatcher.register_listener<e2> (&L2_OK);
+	dispatcher.register_listener<e2> (&L2_MORE);
 	// now e2 is handled by just the first listener producing a fatal error
 	std::cout << "E2->" << (int) dispatcher (new e2 (0)) << "\n";
 
-	dispatcher.unregister_listener ("e2", &L2_FATAL);
+	dispatcher.unregister_listener<e2> (&L2_FATAL);
 	// now the buggy listener is removed so e2 gets handled correctly by two remaining listeners
 	std::cout << "E2->" << (int) dispatcher (new e2 (1)) << "\n";
 
 	// beware of the type mismatch
-	dispatcher.register_listener ("e2", &L1);
+	dispatcher.register_listener<e2> (&L1);
 	// This segfaults:
 	dispatcher (new e2 (666));
 }
