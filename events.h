@@ -7,6 +7,7 @@
 #include <vector>
 #include <typeinfo>
 #include <typeindex>
+#include <algorithm>
 
 namespace maxy
 {
@@ -59,7 +60,7 @@ namespace maxy
 				// Return false if no such listener is registered
 				// Return true if the listener was removed
 				template<class T>
-				bool dispatcher::unregister_listener (listener_type l)
+				bool unregister_listener (listener_type l)
 				{
 					auto pool = listeners.find (std::type_index (typeid (T)));
 					if (pool == listeners.end ()
@@ -79,7 +80,7 @@ namespace maxy
 				// Handle the event
 				// Return the result of the event handling
 				// The event is destroyed after handling
-				result dispatcher::operator() (event * e)
+				result operator() (event * e)
 				{
 					auto pool = listeners.find (std::type_index (typeid (*e)));
 					if (pool == listeners.end ())
