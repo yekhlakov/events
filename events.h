@@ -5,6 +5,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <deque>
 #include <typeinfo>
 #include <typeindex>
 
@@ -27,7 +28,8 @@ namespace maxy
 				Void, // No listeners for this event
 				Ok,  // All listeners behaved well
 				Failed, // Some listeners failed
-				Fatal  // There was a fatal error, some listeners were not invoked at all
+				Fatal,  // There was a fatal error, some listeners were not invoked at all
+				Queued  // We're currently processing an event, so this got queued
 			};
 
 			// The dispatcher
@@ -35,6 +37,53 @@ namespace maxy
 			{
 				using listener_type = result (*) (event *);
 				std::unordered_map<std::type_index, std::vector<listener_type>> listeners;
+
+				bool is_busy = false;
+				std::deque<event *> queue;
+
+				/**
+				 * Process the event from the queue front
+				 */
+				result dispatch ()
+				{
+					if (!queue.size ())
+					{
+						return result::Void;
+					}
+
+					auto e = queue.front ();
+					queue.pop_front ();
+
+					auto pool = listeners.find (std::type_index (typeid (*e)));
+					if (pool == listeners.end ())
+					{
+						// No handlers for this event -> void result
+						delete e;
+						return result::Void;
+					}
+
+					auto res = result::Ok;
+
+					// Iterate over the registered listeners
+					for (auto listener : pool->second)
+					{
+						auto partial_res = listener (e);
+
+						if (partial_res == result::Fatal)
+						{
+							// a fatal error terminates the iteration
+							res = partial_res;
+							break;
+						}
+						else if (partial_res == result::Failed)
+						{
+							// a regular error just sets the result
+							res = partial_res;
+						}
+					}
+					delete e;
+					return res;
+				}
 
 				public:
 				// Add a listener
@@ -81,35 +130,19 @@ namespace maxy
 				// The event is destroyed after handling
 				result dispatcher::operator() (event * e)
 				{
-					auto pool = listeners.find (std::type_index (typeid (*e)));
-					if (pool == listeners.end ())
-					{
-						// No handlers for this event -> void result
-						delete e;
-						return result::Void;
-					}
+					queue.push_back (e);
 
-					auto res = result::Ok;
+					if (is_busy) return result::Queued;
 
-					// Iterate over the registered listeners
-					for (auto listener : pool->second)
-					{
-						auto partial_res = listener (e);
+					is_busy = true;
 
-						if (partial_res == result::Fatal)
-						{
-							// a fatal error terminates the iteration
-							res = partial_res;
-							break;
-						}
-						else if (partial_res == result::Failed)
-						{
-							// a regular error just sets the result
-							res = partial_res;
-						}
-					}
-					delete e;
-					return res;
+					result r = result::Void;
+
+					while (queue.size ()) r = dispatch ();
+
+					is_busy = false;
+
+					return r;
 				}
 			};
 		}

@@ -70,36 +70,58 @@ result L3_2 (event * _e)
 	return result::Failed;
 }
 
+// this is global in order to test nested events
+maxy::control::events::dispatcher d{};
+
+result L3_nested (event * _e)
+{
+	auto e = (e3*) _e;
+
+	std::cout << "L3_nested got " << e->name () << " with " << e->payload << "\n";
+
+	d (new e1 ("from L3"));
+	d (new e2 (333));
+
+	std::cout << "L3 dispatched two events (e1 and e2)\n";
+
+	return result::Ok;
+}
 
 int main ()
-{
-	auto dispatcher = maxy::control::events::dispatcher{};
-
-	dispatcher.register_listener<e1> (&L1);
-	dispatcher.register_listener<e3> (&L3);
-	dispatcher.register_listener<e3> (&L3_2);
+{	
+	d.register_listener<e1> (&L1);
+	d.register_listener<e3> (&L3);
+	d.register_listener<e3> (&L3_2);
 
 	// e1 gets handled once
-	std::cout << "E1->" << (int) dispatcher (new e1 ("OLOLO")) << "\n"; 
+	std::cout << "E1->" << (int) d (new e1 ("OLOLO")) << "\n"; 
 
 	// e2 is skipped
-	std::cout << "E2->" << (int) dispatcher (new e2 (12345)) << "\n";
+	std::cout << "E2->" << (int) d (new e2 (12345)) << "\n";
 
 	// e3 is handled by two listeners with a failure
-	std::cout << "E3->" << (int) dispatcher (new e3 (3.14159f)) << "\n";
+	std::cout << "E3->" << (int) d (new e3 (3.14159f)) << "\n";
 
-	dispatcher.register_listener<e2> (&L2_FATAL);
-	dispatcher.register_listener<e2> (&L2_OK);
-	dispatcher.register_listener<e2> (&L2_MORE);
+	d.register_listener<e2> (&L2_FATAL);
+	d.register_listener<e2> (&L2_OK);
+	d.register_listener<e2> (&L2_MORE);
 	// now e2 is handled by just the first listener producing a fatal error
-	std::cout << "E2->" << (int) dispatcher (new e2 (0)) << "\n";
+	std::cout << "E2->" << (int) d (new e2 (0)) << "\n";
 
-	dispatcher.unregister_listener<e2> (&L2_FATAL);
+	d.unregister_listener<e2> (&L2_FATAL);
 	// now the buggy listener is removed so e2 gets handled correctly by two remaining listeners
-	std::cout << "E2->" << (int) dispatcher (new e2 (1)) << "\n";
+	std::cout << "E2->" << (int) d (new e2 (1)) << "\n";
+
+	// now to the dispatching of events from inside listeners
+	// reorder listeners first
+	d.unregister_listener<e3> (&L3);
+	d.register_listener<e3> (&L3_nested);
+	d.register_listener<e3> (&L3);
+
+	std::cout << "E3->" << (int) d (new e3 (3.14156f)) << "\n";
 
 	// beware of the type mismatch
-	dispatcher.register_listener<e2> (&L1);
+	d.register_listener<e2> (&L1);
 	// This segfaults:
-	dispatcher (new e2 (666));
+	//d (new e2 (666));
 }
