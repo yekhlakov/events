@@ -8,6 +8,7 @@
 #include <deque>
 #include <typeinfo>
 #include <typeindex>
+#include <algorithm>
 
 namespace maxy
 {
@@ -139,7 +140,7 @@ namespace maxy
 				// Handle the event
 				// Return the result of the event handling
 				// The event is destroyed after handling
-				result dispatcher::operator() (event * e)
+				result operator() (event * e)
 				{
 					queue.push_back (e);
 
